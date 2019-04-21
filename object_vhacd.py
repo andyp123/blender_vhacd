@@ -13,7 +13,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 #
-# NOTE: requires/calls Khaled Mamou's testVHACD executable found here: http://code.google.com/p/v-hacd/
+# NOTE: requires/calls Khaled Mamou's VHACD executable found here: https://github.com/kmammou/v-hacd/
 #
 
 # This add-on has been converted to work with Blender 2.80 (conversion by Andrew Palmer)
@@ -24,9 +24,10 @@ bl_info = {
     'author': 'Alain Ducharme (original author), Andrew Palmer (Blender 2.80)',
     'version': (0, 3),
     'blender': (2, 80, 0),
-    'location': '',
-    'warning': "Requires Khaled Mamou's V-HACD v2.0 executable: (see documentation)",
+    'location': 'Object Mode | View3D > V-HACD',
+    'warning': "Requires Khaled Mamou's V-HACD v2.0 executable (see Documentation)",
     'wiki_url': 'https://github.com/kmammou/v-hacd',
+    "tracker_url": "https://github.com/andyp123/blender_vhacd/issues",
     'category': 'Object',
 }
 
@@ -39,25 +40,6 @@ from mathutils import Matrix, Vector
 from os import path as os_path
 from subprocess import Popen
 from tempfile import gettempdir
-
-
-def physics_mass_center(mesh):
-    '''Calculate (final triangulated) mesh's mass and center of mass based on volume'''
-    volume = 0.0
-    mass = 0.0
-    com = Vector()
-    # Based on Stan Melax's volint
-    for face in mesh.polygons:
-        a = Matrix((mesh.vertices[face.vertices[0]].co, mesh.vertices[face.vertices[1]].co, mesh.vertices[face.vertices[2]].co))
-        vol = a.determinant()
-        volume += vol
-        com += vol * (a[0] + a[1] + a[2])
-    if volume > 0:
-        com /= volume * 4.0
-        mass = volume / 6.0
-        return mass, com
-    else:
-        return mass, Vector()
 
 
 def off_export(mesh, fullpath):
@@ -73,8 +55,8 @@ def off_export(mesh, fullpath):
 
 class VHACD_OT_VHACD(bpy.types.Operator):
     bl_idname = 'object.vhacd'
-    bl_label = 'Hierarchical Approximate Convex Decomposition'
-    bl_description = 'Hierarchical Approximate Convex Decomposition, see https://github.com/kmammou/v-hacd'
+    bl_label = 'Convex Hull (V-HACD)'
+    bl_description = ' Create accurate convex hulls using Hierarchical Approximate Convex Decomposition'
     # bl_options = {'PRESET'}
 
     # pre-process options
@@ -93,7 +75,7 @@ class VHACD_OT_VHACD(bpy.types.Operator):
             ('S', 'Scale', 'Apply scale only'),
             ('NONE', 'None', 'Do not apply transformations'),
             ),
-        default = 'RS'
+        default = 'NONE'
     )
 
     # VHACD parameters
@@ -196,37 +178,6 @@ class VHACD_OT_VHACD(bpy.types.Operator):
         precision=5
     )
 
-    # post-process options
-    show_transparent: BoolProperty(
-        name='Show Transparent',
-        description='Enable transparency for ACD hulls',
-        default=True
-    )
-
-    use_generated: BoolProperty(
-        name='Use Generated Mesh',
-        description='Use triangulated mesh generated for V-HACD (for game engine visuals; otherwise use original object)',
-        default=True
-    )
-
-    hide_render: BoolProperty(
-        name='Hide Render',
-        description='Disable rendering of convex hulls (for game engine)',
-        default=True
-    )
-
-    mass_com: BoolProperty(
-        name='Center of Mass',
-        description='Calculate physics mass and set center of mass (origin) based on volume and density (best to apply rotation and scale)',
-        default=True
-    )
-
-    density: FloatProperty(
-        name='Density',
-        description='Material density used to calculate mass from volume',
-        default=10.0,
-        min=0.0
-    )
 
     def execute(self, context):
         prefs = context.preferences.addons[__name__].preferences
@@ -324,64 +275,35 @@ class VHACD_OT_VHACD(bpy.types.Operator):
             imported = bpy.context.selected_objects
             new_objects.extend(imported)
 
+            name_template = prefs.name_template
             for index, hull in enumerate(imported):
                 hull.select_set(False)
-                name = ob.name + '_hull_' + str(index)
+                hull.matrix_basis = post_matrix
+                name = name_template.replace('?', ob.name, 1)
+                name = name.replace('#', str(index), 1)
+                if name == name_template:
+                    name += str(index)
                 hull.name = name
                 hull.data.name = name
+                # Display
+                hull.display_type = 'WIRE'
+                # hull.display.show_shadows = False
+                # hull.show_all_edges = True
 
-            # parent = None
-            # for hull in imported:
-            #     # Make hull a compound rigid body
-            #     hull.select_set(False)
-            #     # hull.show_transparent = self.show_transparent
-            #     if self.mass_com:
-            #         for vert in hull.data.vertices:
-            #             vert.co -= com
-            #     # hull.game.physics_type = 'RIGID_BODY'
-            #     # hull.game.use_collision_bounds = True
-            #     # hull.game.collision_bounds_type = 'CONVEX_HULL'
-            #     # hull.game.mass = mass
-            #     # hull.game.use_collision_compound = True
-            #     hull.hide_render = self.hide_render
-            #     if not parent:
-            #         # Use first hull as compound parent
-            #         parent = hull
-            #         hull.matrix_basis = post_matrix
-            #         # Attach visual mesh as child...
-            #         # ob.game.physics_type = 'NO_COLLISION'
-            #         if self.use_generated:
-            #             if self.mass_com:
-            #                 for vert in mesh.vertices:
-            #                     vert.co -= com
-            #             obc = bpy.data.objects.new(ob.name + '_GM', mesh)
-            #             bpy.context.scene.objects.link(obc)
-            #             # obc.game.physics_type = 'NO_COLLISION'
-            #             obc.parent = parent
-            #             new_objects.append(obc)
-            #         else:
-            #             ob.matrix_basis = pre_matrix
-            #             ob.parent = parent
-            #     else:
-            #         hull.parent = parent
-            #     new_name = ob.name + '_ACD'
-            #     hull.name = hull.name.replace('ShapeIndexedFaceSet', new_name)
-            #     hull.data.name = hull.data.name.replace('ShapeIndexedFaceSet', new_name)
-
-        if len(new_objects):
-            for ob in new_objects:
-                ob.select_set(True)
-        else:
+        if len(new_objects) < 1:
             for ob in selected:
                 ob.select_set(True)
             self.report({'WARNING'}, 'No meshes to process!')
             return {'CANCELLED'}
 
+        for ob in new_objects:
+            ob.select_set(True)
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
         wm = context.window_manager
-        return wm.invoke_props_dialog(self, width=440)
+        return wm.invoke_props_dialog(self, width=400)
 
     def draw(self, context):
         layout = self.layout
@@ -407,23 +329,12 @@ class VHACD_OT_VHACD(bpy.types.Operator):
         col.prop(self, 'maxNumVerticesPerCH')
         col.prop(self, 'minVolumePerCH')
 
-        # layout.separator()
-        # col = layout.column()
-        # col.label(text='Post-Processing Options:')
-        # row = col.row()
-        # row.prop(self, 'show_transparent')
-        # row.prop(self, 'use_generated')
-        # row = col.row()
-        # row.prop(self, 'hide_render')
-        # row.prop(self, 'mass_com')
-        # row.prop(self, 'density')
-
-        # layout.separator()
-        # col = layout.column()
-        # col.label(text='WARNING:', icon='ERROR')
-        # col.label(text='  Processing can take several minutes per object!')
-        # col.label(text='  ALL selected objects will be processed sequentially!')
-        # col.label(text='  See Console Window for progress..,')
+        layout.separator()
+        col = layout.column()
+        col.label(text='WARNING:', icon='ERROR')
+        col.label(text='  Processing can take several minutes per object!')
+        col.label(text='  ALL selected objects will be processed sequentially!')
+        col.label(text='  See Console Window for progress..,')
 
 
 class VHACD_PT_MainPanel(bpy.types.Panel):
@@ -444,7 +355,7 @@ class VHACD_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
     executable_path: StringProperty(
-        name='VHACD Executable Path',
+        name='VHACD Path',
         description='Path to VHACD executable',
         default='',
         maxlen=1024,
@@ -459,72 +370,31 @@ class VHACD_AddonPreferences(bpy.types.AddonPreferences):
         subtype='DIR_PATH'
     )
 
+    name_template: StringProperty(
+        name='Name Template',
+        description='Name template used for generated hulls.\n? = original mesh name\n# = hull id',
+        default='?_hull_#',
+    )
+
     def draw(self, context):
         layout = self.layout
         col = layout.column()
         col.prop(self, 'executable_path')
         col.prop(self, 'data_path')
+        col.prop(self, 'name_template')
 
-
-# class VHACD_AddPreset(AddPresetBase, bpy.types.Operator):
-#     '''Add V-HACD Paths Preset'''
-#     bl_idname = 'scene.vhacd_add_preset'
-#     bl_label = 'Add VHACD Path Preset'
-#     preset_menu = 'VHACD_MT_PathPresets'
-
-#     preset_defines = ['vhacd = bpy.context.scene.vhacd']
-
-#     preset_values = [
-#         'vhacd.vhacd_path',
-#         'vhacd.data_path',
-#     ]
-#     preset_subdir = 'vhacd'
-
-# class VHACD_MT_PathPresets(bpy.types.Menu):
-#     bl_label = 'V-HACD Path Presets'
-#     preset_subdir = 'vhacd'
-#     preset_operator = 'script.execute_preset'
-#     draw = bpy.types.Menu.draw_preset
-
-# class VHACDPaths(bpy.types.PropertyGroup):
-#     @classmethod
-#     def register(cls):
-#         bpy.types.Scene.vhacd = PointerProperty(
-#                 name = 'V-HACD Settings',
-#                 description = 'V-HACD settings',
-#                 type = cls,
-#                 )
-#         cls.vhacd_path = StringProperty(
-#                 name = 'VHACD Path',
-#                 description = 'Path to testVHACD executable',
-#                 default = '', maxlen = 1024, subtype = 'FILE_PATH')
-
-#         cls.data_path = StringProperty(
-#                 name = 'Data Path',
-#                 description = 'Data path to store V-HACD meshes and logs',
-#                 default = gettempdir(), maxlen = 1024, subtype = 'DIR_PATH')
-
-#     @classmethod
-#     def unregister(cls):
-#         if 'vhacd' in dir(bpy.types.Scene):
-#             del bpy.types.Scene.vhacd
 
 classes = (
-    # VHACDPaths,
-    # VHACD_AddPreset,
-    # VHACD_MT_PathPresets,
     VHACD_AddonPreferences,
     VHACD_OT_VHACD,
     VHACD_PT_MainPanel
     )
 
 def register():
-    # add operators
     for c in classes:
         bpy.utils.register_class(c)
 
 def unregister():
-    # remove operators
     for c in reversed(classes):
         bpy.utils.unregister_class(c)
 
