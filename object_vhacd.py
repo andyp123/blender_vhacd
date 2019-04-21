@@ -53,29 +53,71 @@ def off_export(mesh, fullpath):
             off.write(str.encode('3 {} {} {}\n'.format(*face.vertices)))
 
 
+class VHACD_OT_RenameHulls(bpy.types.Operator):
+    bl_idname = 'object.vhacd_rename_hulls'
+    bl_label = 'Rename Hulls'
+    bl_description = 'Rename selected objects with name of active object using a template'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name_template: StringProperty(
+        name='Name Template',
+        description='Name template used for generated hulls.\n? = original mesh name\n# = hull id',
+        default=''
+    )
+
+    set_display: BoolProperty(
+        name='Set Display',
+        description='Set the display properties of selected objects to wireframe',
+        default=True
+    )
+
+    def execute(self, context):
+        if self.name_template == '':
+            self.name_template = context.preferences.addons[__name__].preferences.name_template
+        name_template = self.name_template
+
+        active_object = context.active_object
+        selected_objects = [ob for ob in context.selected_objects if ob != active_object and ob.type == 'MESH']
+
+        for index, ob in enumerate(selected_objects):
+            name = name_template.replace('?', active_object.name, 1)
+            name = name.replace('#', str(index + 1), 1)
+            if name == name_template:
+                name += str(index + 1)
+            ob.name = name
+            ob.data.name = name
+
+            if self.set_display:
+                ob.display_type = 'WIRE'
+                # ob.display.show_shadows = False
+                # ob.show_all_edges = True
+
+        return {'FINISHED'}
+
+
 class VHACD_OT_VHACD(bpy.types.Operator):
     bl_idname = 'object.vhacd'
     bl_label = 'Convex Hull (V-HACD)'
     bl_description = ' Create accurate convex hulls using Hierarchical Approximate Convex Decomposition'
-    # bl_options = {'PRESET'}
+    bl_options = {'REGISTER'} # {'PRESET'}
 
     # pre-process options
     remove_doubles: BoolProperty(
-        name = 'Remove Doubles',
-        description = 'Collapse overlapping vertices in generated mesh',
-        default = True
+        name='Remove Doubles',
+        description='Collapse overlapping vertices in generated mesh',
+        default=True
     )
 
     apply_transforms: EnumProperty(
-        name = 'Apply',
-        description = 'Apply Transformations to generated mesh',
-        items = (
+        name='Apply',
+        description='Apply Transformations to generated mesh',
+        items=(
             ('LRS', 'Location + Rotation + Scale', 'Apply location, rotation and scale'),
             ('RS', 'Rotation + Scale', 'Apply rotation and scale'),
             ('S', 'Scale', 'Apply scale only'),
             ('NONE', 'None', 'Do not apply transformations'),
             ),
-        default = 'NONE'
+        default='NONE'
     )
 
     # VHACD parameters
@@ -280,9 +322,9 @@ class VHACD_OT_VHACD(bpy.types.Operator):
                 hull.select_set(False)
                 hull.matrix_basis = post_matrix
                 name = name_template.replace('?', ob.name, 1)
-                name = name.replace('#', str(index), 1)
+                name = name.replace('#', str(index + 1), 1)
                 if name == name_template:
-                    name += str(index)
+                    name += str(index + 1)
                 hull.name = name
                 hull.data.name = name
                 # Display
@@ -337,18 +379,20 @@ class VHACD_OT_VHACD(bpy.types.Operator):
         col.label(text='  See Console Window for progress..,')
 
 
-class VHACD_PT_MainPanel(bpy.types.Panel):
-    bl_label = 'V-HACD'
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category =  'View'
-    bl_context = 'objectmode'
-    bl_options = {'DEFAULT_CLOSED'}
+# Panel not required
+# class VHACD_PT_MainPanel(bpy.types.Panel):
+#     bl_label = 'V-HACD'
+#     bl_space_type = 'VIEW_3D'
+#     bl_region_type = 'UI'
+#     bl_category =  'View'
+#     bl_context = 'objectmode'
+#     bl_options = {'DEFAULT_CLOSED'}
 
-    def draw(self, context):
-        layout = self.layout
-        col = layout.column()
-        col.operator('object.vhacd', text='V-HACD')
+#     def draw(self, context):
+#         layout = self.layout
+#         col = layout.column()
+#         col.operator('object.vhacd')
+#         col.operator('vhacd.set_collider_names')
 
 
 class VHACD_AddonPreferences(bpy.types.AddonPreferences):
@@ -387,7 +431,8 @@ class VHACD_AddonPreferences(bpy.types.AddonPreferences):
 classes = (
     VHACD_AddonPreferences,
     VHACD_OT_VHACD,
-    VHACD_PT_MainPanel
+    VHACD_OT_RenameHulls,
+    # VHACD_PT_MainPanel
     )
 
 def register():
