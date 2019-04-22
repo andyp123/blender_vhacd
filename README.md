@@ -1,5 +1,7 @@
 # V-HACD For Blender 2.80
-Blender 2.80 conversion of Phymec's add-on that enables the use of V-HACD for quick and accurate convex decomposition of arbitrary meshes inside Blender.
+Blender 2.80 conversion of Phymec's add-on that enables the use of V-HACD for quick and accurate convex decomposition of arbitrary meshes inside Blender. It uses the [V-HACD algorithm](https://github.com/kmammou/v-hacd), developed by Khaled Mammou.
+
+![V-HACD Operation](https://raw.githubusercontent.com/andyp123/blender_vhacd/master/README_img/vhacd.png)
 
 ## Installation
 __Note:__ This add-on requires [Blender 2.80](https://builder.blender.org) and the [V-HACD](https://github.com/kmammou/v-hacd) executable to work. Before installing the add-on, make sure you have a copy of V-HACD installed somewhere on your computer. You will only need a single file (testVHACD.exe) for this add-on to work.
