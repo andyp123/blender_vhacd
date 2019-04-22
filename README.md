@@ -1,8 +1,6 @@
 # V-HACD For Blender 2.80
 Blender 2.80 conversion of Phymec's add-on that enables the use of V-HACD for quick and accurate convex decomposition of arbitrary meshes inside Blender. It uses the [V-HACD algorithm](https://github.com/kmammou/v-hacd), developed by Khaled Mammou.
 
-![V-HACD Operation](https://raw.githubusercontent.com/andyp123/blender_vhacd/master/README_img/vhacd.gif)
-
 ## Installation
 __Note:__ This add-on requires [Blender 2.80](https://builder.blender.org) and the [V-HACD](https://github.com/kmammou/v-hacd) executable to work. Before installing the add-on, make sure you have a copy of V-HACD installed somewhere on your computer. You will only need a single file (testVHACD.exe) for this add-on to work.
 1. Download the add-on [here](https://github.com/andyp123/blender_vhacd/archive/master.zip).
@@ -15,6 +13,8 @@ __Note:__ This add-on requires [Blender 2.80](https://builder.blender.org) and t
 
 ## Usage
 Once the add-on is installed correctly, it can be used very easily by selecting meshes and running the 'Convex Hull (V-HACD)' operator, which can be found from the Blender operator search menu.
+
+![V-HACD Operation](https://raw.githubusercontent.com/andyp123/blender_vhacd/master/README_img/vhacd.gif)
 
 ### Convex Hull (V-HACD)
 Takes one or more meshes of arbitrary geometry and generates convex hulls which are suitable for use in real-time applications such as games. Generated hulls will be named based on the 'Name Template' setting in the add-on preferences.
