@@ -2,8 +2,11 @@
 Blender 2.80 conversion of Phymec's add-on that enables the use of V-HACD for quick and accurate convex decomposition of arbitrary meshes inside Blender. It uses the [V-HACD algorithm](https://github.com/kmammou/v-hacd), developed by Khaled Mammou.
 
 ## Installation
-__Note:__ This add-on requires [Blender 2.80](https://builder.blender.org) and the [V-HACD](https://github.com/kmammou/v-hacd) executable to work. Before installing the add-on, make sure you have a copy of V-HACD installed somewhere on your computer. You will only need a single file (testVHACD.exe) for this add-on to work.
-1. Download the add-on [here](https://github.com/andyp123/blender_vhacd/archive/master.zip).
+__Note:__ This add-on requires [Blender 2.80](https://builder.blender.org) and the [V-HACD](https://github.com/kmammou/v-hacd) executable to work. Before installing the add-on, make sure you have a copy of V-HACD installed somewhere on your computer. You will only need a single file (testVHACD.exe) for this add-on to work. You can directly download the required executable from the following links:
+V-HACD: [Win](https://github.com/kmammou/v-hacd/blob/master/bin/win64/testVHACD.exe) | [OSX](https://github.com/kmammou/v-hacd/raw/master/bin/osx/testVHACD) - Requires OpenCL
+V-HACD: [Win](https://github.com/kmammou/v-hacd/blob/master/bin-no-ocl/win64/testVHACD.exe) | [OSX](https://github.com/kmammou/v-hacd/raw/master/bin-no-ocl/osx/testVHACD) - No OpenCL required
+
+1. Download the add-on [here](https://github.com/andyp123/blender_vhacd/releases).
 2. In Blender, open the Preferences window (Edit>Preferences) and select the Add-ons tab.
 3. Press the 'Install...' button and select the .zip file you downloaded.
 4. Enable the add-on and set the VHACD Path to point to the testVHACD.exe file that you previously downloaded.
