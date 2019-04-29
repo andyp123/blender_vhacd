@@ -22,7 +22,7 @@ bl_info = {
     'name': 'V-HACD',
     'description': 'Hierarchical Approximate Convex Decomposition',
     'author': 'Alain Ducharme (original author), Andrew Palmer (Blender 2.80)',
-    'version': (0, 3),
+    'version': (0, 35),
     'blender': (2, 80, 0),
     'location': 'Object Mode | View3D > V-HACD',
     'warning': "Requires Khaled Mamou's V-HACD v2.0 executable (see Documentation)",
@@ -33,12 +33,14 @@ bl_info = {
 
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
-from bl_operators.presets import AddPresetBase
 import bmesh
+import re # for matching object names
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
 from mathutils import Matrix, Vector
-from os import path as os_path
+from bl_operators.presets import AddPresetBase
+
 from subprocess import Popen
+from os import path as os_path
 from tempfile import gettempdir
 
 
@@ -95,11 +97,59 @@ class VHACD_OT_RenameHulls(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class VHACD_OT_SelectHulls(bpy.types.Operator):
+    bl_idname = 'object.vhacd_select_hulls'
+    bl_label = 'Select Hulls'
+    bl_description = 'Select any convex hulls in the scene for the current object based on object name'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    only_hulls: bpy.props.BoolProperty(
+        name="Only Hulls",
+        default=False,
+        description="Select only hulls and deselect everything else"
+    )
+
+    def execute(self, context):
+        selected_objects = [ob for ob in bpy.context.selected_objects if ob.type == 'MESH']
+
+        if len(selected_objects) < 1:
+            self.report({'ERROR'}, 'First select an object to find its matching hulls')
+            return {'CANCELLED'}
+
+        all_objects = [ob for ob in context.scene.objects if ob.type == 'MESH']
+
+        name_template = context.preferences.addons[__name__].preferences.name_template
+        name_template = name_template.replace('#', '[0-9]+', 1)
+        if name_template.find('?') == -1:
+            self.report({'ERROR'}, "Can only match hulls to a name template containing a '?' character.")
+            return {'CANCELLED'}
+
+        hulls = []
+
+        for ob in selected_objects:
+            regex = re.compile(name_template.replace('?', ob.name, 1))
+
+            for ob_search in all_objects[-1::-1]: # reverse traversal
+                if regex.match(ob_search.name):
+                    hulls.append(ob_search)
+                    all_objects.remove(ob_search)
+
+        # deselect selected
+        if self.only_hulls:
+            bpy.ops.object.select_all(action='DESELECT')
+
+        # select hulls
+        for ob in hulls:
+            ob.select_set(True)
+
+        return {'FINISHED'}
+
+
 class VHACD_OT_VHACD(bpy.types.Operator):
     bl_idname = 'object.vhacd'
     bl_label = 'Convex Hull (V-HACD)'
-    bl_description = ' Create accurate convex hulls using Hierarchical Approximate Convex Decomposition'
-    bl_options = {'REGISTER'} # {'PRESET'}
+    bl_description = 'Create accurate convex hulls using Hierarchical Approximate Convex Decomposition'
+    bl_options = {'REGISTER', 'PRESET'} # PRESET doesn't seem to require AdPresetBase operator to work anymore...
 
     # pre-process options
     remove_doubles: BoolProperty(
@@ -379,22 +429,6 @@ class VHACD_OT_VHACD(bpy.types.Operator):
         col.label(text='  See Console Window for progress..,')
 
 
-# Panel not required
-# class VHACD_PT_MainPanel(bpy.types.Panel):
-#     bl_label = 'V-HACD'
-#     bl_space_type = 'VIEW_3D'
-#     bl_region_type = 'UI'
-#     bl_category =  'View'
-#     bl_context = 'objectmode'
-#     bl_options = {'DEFAULT_CLOSED'}
-
-#     def draw(self, context):
-#         layout = self.layout
-#         col = layout.column()
-#         col.operator('object.vhacd')
-#         col.operator('vhacd.set_collider_names')
-
-
 class VHACD_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
@@ -427,13 +461,12 @@ class VHACD_AddonPreferences(bpy.types.AddonPreferences):
         col.prop(self, 'data_path')
         col.prop(self, 'name_template')
 
-
 classes = (
     VHACD_AddonPreferences,
-    VHACD_OT_VHACD,
     VHACD_OT_RenameHulls,
-    # VHACD_PT_MainPanel
-    )
+    VHACD_OT_SelectHulls,
+    VHACD_OT_VHACD,
+)
 
 def register():
     for c in classes:
