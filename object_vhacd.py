@@ -21,9 +21,9 @@
 bl_info = {
     'name': 'V-HACD',
     'description': 'Hierarchical Approximate Convex Decomposition',
-    'author': 'Alain Ducharme (original author), Andrew Palmer (Blender 2.80)',
-    'version': (0, 35),
-    'blender': (2, 80, 0),
+    'author': 'Alain Ducharme (original author), Andrew Palmer (Blender 2.80), Terence Dickson (2.90)',
+    'version': (0, 36),
+    'blender': (2, 90, 0),
     'location': 'Object Mode | View3D > V-HACD',
     'warning': "Requires Khaled Mamou's V-HACD v2.0 executable (see Documentation)",
     'wiki_url': 'https://github.com/kmammou/v-hacd',
@@ -149,12 +149,19 @@ class VHACD_OT_VHACD(bpy.types.Operator):
     bl_idname = 'object.vhacd'
     bl_label = 'Convex Hull (V-HACD)'
     bl_description = 'Create accurate convex hulls using Hierarchical Approximate Convex Decomposition'
-    bl_options = {'REGISTER', 'PRESET'} # PRESET doesn't seem to require AdPresetBase operator to work anymore...
+    bl_options = {'REGISTER', 'PRESET', 'UNDO'} # PRESET doesn't seem to require AdPresetBase operator to work anymore...
 
     # pre-process options
     remove_doubles: BoolProperty(
         name='Remove Doubles',
         description='Collapse overlapping vertices in generated mesh',
+        default=True
+    )
+
+    # pre-process options
+    apply_modifiers: BoolProperty(
+        name='Apply Modifiers',
+        description='Apply all modifiers before computing hull',
         default=True
     )
 
@@ -314,7 +321,11 @@ class VHACD_OT_VHACD(bpy.types.Operator):
             outFileName = os_path.join(data_path, '{}.wrl'.format(filename))
             logFileName = os_path.join(data_path, '{}_log.txt'.format(filename))
 
-            mesh = ob.data.copy()
+            if self.apply_modifiers:
+                depsgraph = context.evaluated_depsgraph_get()
+                mesh = ob.evaluated_get(depsgraph).data.copy()
+            else:
+                mesh = ob.data.copy()
 
             translation, quaternion, scale = ob.matrix_world.decompose()
             scale_matrix = Matrix(((scale.x,0,0,0), (0,scale.y,0,0), (0,0,scale.z,0), (0,0,0,1)))
@@ -402,6 +413,7 @@ class VHACD_OT_VHACD(bpy.types.Operator):
         col = layout.column()
         col.label(text='Pre-Processing Options:')
         col.prop(self, 'remove_doubles')
+        col.prop(self, 'apply_modifiers')
         col.prop(self, 'apply_transforms')
 
         layout.separator()
@@ -427,6 +439,26 @@ class VHACD_OT_VHACD(bpy.types.Operator):
         col.label(text='  Processing can take several minutes per object!')
         col.label(text='  ALL selected objects will be processed sequentially!')
         col.label(text='  See Console Window for progress..,')
+
+
+class VIEW3D_MT_vhacd_menu(bpy.types.Menu):
+    bl_label = "V-HACD"
+    bl_idname = "VIEW3D_MT_vhacd_menu"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text="V-HACD")
+        layout.operator(
+                VHACD_OT_VHACD.bl_idname,
+                text=VHACD_OT_VHACD.bl_label,
+                icon="MOD_MESHDEFORM")
+        layout.separator()
+        layout.operator(
+                VHACD_OT_SelectHulls.bl_idname,
+                text=VHACD_OT_SelectHulls.bl_label)
+        layout.operator(
+                VHACD_OT_RenameHulls.bl_idname,
+                text=VHACD_OT_RenameHulls.bl_label)
 
 
 class VHACD_AddonPreferences(bpy.types.AddonPreferences):
@@ -461,20 +493,27 @@ class VHACD_AddonPreferences(bpy.types.AddonPreferences):
         col.prop(self, 'data_path')
         col.prop(self, 'name_template')
 
+
 classes = (
     VHACD_AddonPreferences,
     VHACD_OT_RenameHulls,
     VHACD_OT_SelectHulls,
     VHACD_OT_VHACD,
+    VIEW3D_MT_vhacd_menu,
 )
+
+def menu_func(self, context):
+    self.layout.menu(VIEW3D_MT_vhacd_menu.bl_idname)
 
 def register():
     for c in classes:
         bpy.utils.register_class(c)
+    bpy.types.VIEW3D_MT_object.append(menu_func)
 
 def unregister():
     for c in reversed(classes):
         bpy.utils.unregister_class(c)
+    bpy.types.VIEW3D_MT_object.remove(menu_func)
 
 # allows running addon from text editor
 if __name__ == '__main__':
