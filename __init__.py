@@ -30,7 +30,7 @@ bl_info = {
 
 import bpy
 from bpy.types import AddonPreferences
-from bpy.props import StringProperty
+from bpy.props import StringProperty, BoolProperty
 from tempfile import gettempdir
 from . import OP_VHCAD_main
 
@@ -60,12 +60,19 @@ class VHACD_blender_prefs(AddonPreferences):
         default='?_hull_#',
     )
 
+    enable_logging: BoolProperty(
+        name='Enable V-HACD logging',
+        description='Activate V-HACD logging (-g option set in CMD)',
+        default=True,
+    )
+
     def draw(self, context):
         layout = self.layout
         col = layout.column()
         col.prop(self, 'executable_path')
         col.prop(self, 'data_path')
         col.prop(self, 'name_template')
+        col.prop(self, 'enable_logging')
 
 classes = (
     VHACD_blender_prefs,
