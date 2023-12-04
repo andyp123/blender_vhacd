@@ -85,7 +85,7 @@ class VHACD_OT_VHACD(Operator):
         default=1,
         min=0.001,
         max=10
-    )   
+    )
 
     maxRecursionDepth: IntProperty(
         name='Maximum recursion Depth',
@@ -180,13 +180,22 @@ class VHACD_OT_VHACD(Operator):
             ob.select_set(True)
             bpy.ops.export_scene.obj(filepath=obj_filename, use_selection=True)
 
-            cmd_line = (f'"{vhacd_path}" "{obj_filename}" -h {self.maxConvexHull} -r {self.voxelResolution} - {self.volumeErrorPercent} -d {self.maxRecursionDepth} -s {self.shrinkwrapOutput} -f {self.fillMode} -v {self.maxHullVertCount} -a {self.runAsync} -l {self.minEdgeLength} -o obj -p {self.optimalSplit}')
+            # change cd to the data path + use integers for the bool values (Pascal case True/False is not valid)
+            cmd_line = (f'cd "{data_path}" && "{vhacd_path}" "{obj_filename}" -h {self.maxConvexHull} -r {self.voxelResolution} -e {self.volumeErrorPercent} -d {self.maxRecursionDepth} -s {int(self.shrinkwrapOutput)} -f {self.fillMode} -v {self.maxHullVertCount} -a {int(self.runAsync)} -l {self.minEdgeLength} -o obj -p {int(self.optimalSplit)}')
+
+            # activate logging messages
+            if prefs.enable_logging:
+                cmd_line += f" -g 1"
 
             print(f'Running V-HACD...\n{cmd_line}\n')
             vhacd_process = Popen(cmd_line, bufsize=-1, close_fds=True, shell=True)
             vhacd_process.wait()
-    
-            bpy.ops.import_scene.obj(filepath=get_last_generated_file_path())
+
+            # read file in specified data path
+            from os import path
+            bpy.ops.import_scene.obj(filepath=data_path + "\decomp.obj")
+
+            #bpy.ops.import_scene.obj(filepath=get_last_generated_file_path())
             imported = bpy.context.selected_objects
             new_objects.extend(imported)
 
@@ -245,7 +254,7 @@ class VHACD_OT_VHACD(Operator):
 ## Registration
 def menu_func(self, context):
     self.layout.operator(VHACD_OT_VHACD.bl_idname)
-    self.layout.operator(VHACD_OT_SelectHulls.bl_idname)            
+    self.layout.operator(VHACD_OT_SelectHulls.bl_idname)
 
 classes = (
 VHACD_OT_VHACD,
@@ -253,7 +262,7 @@ VHACD_OT_SelectHulls,
 )
 
 def register():
-    for cl in classes:  
+    for cl in classes:
         bpy.utils.register_class(cl)
 
     bpy.types.VIEW3D_MT_object.append(menu_func)
